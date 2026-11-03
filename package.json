@@ -1,0 +1,63 @@
+{
+  "name": "pa11y-webscan",
+  "displayName": "Pa11y Web Scanner",
+  "description": "Scan websites for accessibility issues with Pa11y CI and review plain-English findings.",
+  "version": "0.1.0",
+  "publisher": "mervinmcdougall",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mervinmcdougall/kle-pa11y-webscan.git"
+  },
+  "engines": {
+    "vscode": "^1.96.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "accessibility",
+    "a11y",
+    "pa11y",
+    "wcag"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onCommand:pa11yWebscan.scan"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "pa11yWebscan.scan",
+        "title": "Pa11y Web Scanner: Start Scan"
+      }
+    ],
+    "configuration": {
+      "title": "Pa11y Web Scanner",
+      "properties": {
+        "pa11yWebscan.chromeExecutablePath": {
+          "type": "string",
+          "default": "",
+          "description": "Path to a locally installed Chrome or Chromium executable. Leave empty to use Puppeteer's default cached browser."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "test": "npm run compile && node --test out/test/*.test.js",
+    "setup-browser": "node scripts/setup-browser.cjs",
+    "package": "vsce package"
+  },
+  "dependencies": {
+    "pa11y-ci": "4.1.1"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.6.2",
+    "@types/node": "^22.15.0",
+    "@types/vscode": "^1.96.0",
+    "typescript": "^5.8.3"
+  }
+}
