@@ -48,6 +48,7 @@ export function toMarkdown(report: ScanReport): string {
     lines.push("No accessibility findings were returned by the scan.", "");
   }
 
+  // Match the interactive results ordering so exported reports are easy to compare.
   for (const finding of sortFindings(report.findings)) {
     lines.push(
       `## ${severityTag(finding.severity)} ${markdownText(finding.code)} (${finding.count} occurrence${finding.count === 1 ? "" : "s"})`,

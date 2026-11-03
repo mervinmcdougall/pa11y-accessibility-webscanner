@@ -28,6 +28,7 @@ export function chooseChromeExecutablePath(
     return puppeteerPath;
   }
 
+  // Prefer a usable cached Chrome over forcing a large download of Puppeteer's pinned build.
   const cachedChrome = cachedChromePaths.find(isFile);
   if (cachedChrome) {
     return cachedChrome;

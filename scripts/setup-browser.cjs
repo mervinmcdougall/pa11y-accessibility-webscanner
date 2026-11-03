@@ -28,6 +28,7 @@ async function setupBrowser() {
     .filter((browser) => browser.browser === "chrome" && isFile(browser.executablePath))
     .sort((left, right) => collator.compare(right.buildId, left.buildId))[0];
   if (fallback) {
+    // The extension can use this browser as a fallback without replacing the cache.
     console.warn(
       `Puppeteer's pinned Chrome executable is missing; a cached Chrome build is available at "${fallback.executablePath}".`
     );
@@ -46,6 +47,7 @@ async function setupBrowser() {
   }
 
   if (existsSync(buildDirectory)) {
+    // Puppeteer can mistake a partial previous download for an installed browser.
     rmSync(buildDirectory, { recursive: true, force: true });
   }
 

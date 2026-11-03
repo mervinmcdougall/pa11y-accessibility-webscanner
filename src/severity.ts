@@ -3,6 +3,7 @@ import { Finding, Severity } from "./types";
 export type { Severity } from "./types";
 
 export function severityForType(type: string, impact?: string): Severity {
+  // Use axe's direct impact value where available; Pa11y levels are only a fallback.
   switch (impact?.trim().toLowerCase()) {
     case "critical":
       return "Critical";

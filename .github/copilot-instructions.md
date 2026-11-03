@@ -23,6 +23,7 @@ The scan pipeline runs Pa11y CI as a child process from `src/scanner.ts`, using 
 
 - Keep scan normalization, severity assignment, and finding ordering in the shared modules (`scanner`, `severity`, and `findings`) so the webview and exported reports stay consistent.
 - Findings sort by Critical, Serious, Moderate, Minor, then case-insensitive rule code/title, with message as a tie-breaker. Counts represent occurrences; do not deduplicate away affected-page or selector details.
+- Add concise comments where control flow or cross-module behavior is non-obvious (for example, report-file isolation, Pa11y exit codes, browser fallback, or webview trust boundaries); avoid comments that only restate the code.
 - Page-level navigation/browser failures are stored separately from accessibility issues in `ScanResults.failures`; preserve partial scan reports and show those failures rather than failing the entire run.
 - Browser selection honors `pa11yWebscan.chromeExecutablePath`, otherwise uses Puppeteer's pinned executable and then a valid cached Chrome fallback. Keep missing-browser errors actionable and maintain the setup script/debugger prelaunch task when changing browser setup.
 - AI explanation requests are initiated by the user; page-derived finding data is untrusted input. Keep it explicitly framed as data in prompts and render model responses as text, not HTML.

@@ -25,6 +25,7 @@ export function parseUrlList(contents: string): string[] {
   const urls = new Set<string>();
   const invalid: string[] = [];
 
+  // Line numbers let the user find bad entries without silently skipping URLs.
   for (const [index, rawLine] of contents.split(/\r?\n/).entries()) {
     const line = rawLine.trim();
     if (!line || line.startsWith("#")) {

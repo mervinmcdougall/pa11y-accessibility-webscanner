@@ -8,6 +8,7 @@ import { scan } from "./scanner";
 import { Finding, ScanReport } from "./types";
 
 export function activate(context: vscode.ExtensionContext): void {
+  // Keep the extension dormant until the user explicitly starts a scan.
   context.subscriptions.push(
     vscode.commands.registerCommand("pa11yWebscan.scan", () => startScan(context))
   );
@@ -25,6 +26,7 @@ async function startScan(context: vscode.ExtensionContext): Promise<void> {
   let aiCancellation: vscode.CancellationTokenSource | undefined;
   const reporterPath = path.join(context.extensionPath, "media", "pa11y-reporter.cjs");
   try {
+    // Pa11y CI runs as a child process so cancellation can stop the browser scan.
     const results = await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
@@ -47,6 +49,7 @@ async function startScan(context: vscode.ExtensionContext): Promise<void> {
       findings: groupFindings(results)
     };
 
+    // Keep scan data in the host so the webview can request AI explanations and exports.
     currentPanel = new ResultsPanel(
       report,
       async () => {

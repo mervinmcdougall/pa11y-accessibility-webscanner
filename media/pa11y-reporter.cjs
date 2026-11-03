@@ -16,6 +16,7 @@ module.exports = function createReporter() {
       });
     },
     afterAll(report) {
+      // Keep machine-readable results separate from stdout/stderr diagnostics and progress.
       const reportPath = process.env.PA11Y_REPORT_PATH;
       if (!reportPath) {
         throw new Error("PA11Y_REPORT_PATH is required to save the scan report.");

@@ -21,6 +21,7 @@ export class ResultsPanel {
       vscode.ViewColumn.Active,
       {
         enableScripts: true,
+        // The report is self-contained and does not need to load extension or workspace files.
         localResourceRoots: []
       }
     );
@@ -69,6 +70,7 @@ export class ResultsPanel {
 
   private createHtml(): string {
     const nonce = randomBytes(16).toString("base64");
+    // Escape '<' before embedding scan/model content in the inline JSON script element.
     const initialData = JSON.stringify({
       summary: {
         total: this.report.results.total,
@@ -128,6 +130,7 @@ export class ResultsPanel {
 
     function textElement(tag, text, className) {
       const element = document.createElement(tag);
+      // Scan context and model output are untrusted; render them as text, never HTML.
       element.textContent = text;
       if (className) element.className = className;
       return element;

@@ -14,6 +14,7 @@ function findingTitle(finding: Finding): string {
 }
 
 export function sortFindings(findings: Finding[]): Finding[] {
+  // Keep the most severe findings first; titles and messages make ties predictable.
   return [...findings].sort((left, right) =>
     severityOrder[left.severity] - severityOrder[right.severity] ||
     findingTitle(left).localeCompare(findingTitle(right), undefined, { sensitivity: "base" }) ||
@@ -22,6 +23,7 @@ export function sortFindings(findings: Finding[]): Finding[] {
 }
 
 function stableKey(issue: ScanIssue): string {
+  // Include axe impact so distinct severity levels for the same rule stay separate.
   return [
     issue.code.trim().toLowerCase(),
     issue.message.trim().toLowerCase().replace(/\s+/g, " "),
@@ -50,6 +52,7 @@ export function groupFindings(results: ScanResults): Finding[] {
         grouped.set(key, finding);
       }
 
+      // Aggregate repeated instances while keeping every page and selector for review.
       finding.count += 1;
       finding.occurrences.push({
         url,

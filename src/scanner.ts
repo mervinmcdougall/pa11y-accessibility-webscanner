@@ -27,6 +27,7 @@ function toIssue(value: unknown): ScanIssue | undefined {
   }
 
   const runnerExtras = isRecord(value.runnerExtras) ? value.runnerExtras : undefined;
+  // Axe stores its Critical/Serious/Moderate/Minor impact outside Pa11y's type field.
   const impact = runnerExtras && typeof runnerExtras.impact === "string"
     ? runnerExtras.impact
     : undefined;
@@ -100,6 +101,7 @@ export async function scan(
 
   const temporaryDirectory = await mkdtemp(path.join(os.tmpdir(), "pa11y-webscan-"));
   try {
+    // Isolate generated config and report files from the user's workspace and Pa11y config.
     const puppeteerPath = require("puppeteer").executablePath() as string;
     const browserPath = await resolveChromeExecutablePath(chromeExecutablePath, puppeteerPath);
     const configPath = path.join(temporaryDirectory, "pa11yci.json");
@@ -180,6 +182,7 @@ export async function scan(
         const lines = stderrLineBuffer.split(/\r?\n/);
         stderrLineBuffer = lines.pop() ?? "";
         for (const line of lines) {
+          // Progress is a small tagged stderr event; regular diagnostics stay out of the report.
           if (!line.startsWith(progressPrefix)) {
             continue;
           }
@@ -209,6 +212,7 @@ export async function scan(
           finishError(new Error("Pa11y CI output exceeded the 64 MB safety limit."));
           return;
         }
+        // Pa11y CI uses exit code 2 for threshold failures; scan findings are still valid output.
         if (code !== 0 && code !== 2) {
           finishError(new Error(
             `Pa11y CI failed${signal ? ` (${signal})` : ` with exit code ${code}`}. ${stderr.trim()}`
@@ -216,6 +220,7 @@ export async function scan(
           return;
         }
         try {
+          // The reporter writes JSON to a file so browser/CLI output cannot corrupt the report.
           const reportStats = await stat(reportPath);
           if (reportStats.size > outputLimit) {
             finishError(new Error("Pa11y CI report exceeded the 64 MB safety limit."));
