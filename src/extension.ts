@@ -11,7 +11,9 @@ import { Finding, ScanReport } from "./types";
 export function activate(context: vscode.ExtensionContext): void {
   // Keep the extension dormant until the user explicitly starts a scan.
   context.subscriptions.push(
-    vscode.commands.registerCommand("pa11yWebscan.scan", () => startScan(context))
+    vscode.commands.registerCommand("pa11yWebscan.scan", () => startScan(context)),
+    vscode.commands.registerCommand("pa11yWebscan.setAiApiKey", () => setAiApiKey(context)),
+    vscode.commands.registerCommand("pa11yWebscan.clearAiApiKey", () => clearAiApiKey(context))
   );
 }
 
@@ -60,9 +62,22 @@ async function startScan(context: vscode.ExtensionContext): Promise<void> {
           return;
         }
         aiCancellation = new vscode.CancellationTokenSource();
-        currentPanel.setStatus("Generating explanations. Finding details are sent to the selected VS Code language model.");
+        const aiConfiguration = vscode.workspace.getConfiguration("pa11yWebscan");
+        const provider = aiConfiguration.get<"vscode" | "openaiCompatible">("aiProvider", "vscode");
+        currentPanel.setStatus(
+          provider === "vscode"
+            ? "Generating explanations with the selected VS Code language model."
+            : "Generating explanations with the configured external AI service. Finding details are sent to that service."
+        );
         try {
-          const explanations = await explainFindings(currentPanel.findings, aiCancellation.token);
+          const explanations = await explainFindings(currentPanel.findings, aiCancellation.token, {
+            provider,
+            baseUrl: aiConfiguration.get<string>("aiApiBaseUrl", "https://api.openai.com/v1"),
+            model: aiConfiguration.get<string>("aiModel", "gpt-4o-mini"),
+            ...(provider === "openaiCompatible"
+              ? { apiKey: await context.secrets.get("pa11yWebscan.aiApiKey") }
+              : {})
+          });
           const findings = currentPanel.findings.map((finding) => {
             const explanation = explanations.get(finding.id);
             return explanation
@@ -104,9 +119,30 @@ async function startScan(context: vscode.ExtensionContext): Promise<void> {
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message !== "Scan cancelled.") {
-      await vscode.window.showErrorMessage(`Pa11y Web Scanner: ${message}`);
+      await vscode.window.showErrorMessage(`Pa11y Accessibility Web Scanner: ${message}`);
     }
   }
+}
+
+/** Stores an external AI API key in VS Code's encrypted secret storage. */
+async function setAiApiKey(context: vscode.ExtensionContext): Promise<void> {
+  const apiKey = await vscode.window.showInputBox({
+    prompt: "Enter the API key for your configured AI service",
+    password: true,
+    ignoreFocusOut: true,
+    title: "Set AI API Key"
+  });
+  if (!apiKey?.trim()) {
+    return;
+  }
+  await context.secrets.store("pa11yWebscan.aiApiKey", apiKey.trim());
+  await vscode.window.showInformationMessage("AI API key saved securely in VS Code.");
+}
+
+/** Removes the external AI API key from VS Code's secret storage. */
+async function clearAiApiKey(context: vscode.ExtensionContext): Promise<void> {
+  await context.secrets.delete("pa11yWebscan.aiApiKey");
+  await vscode.window.showInformationMessage("AI API key removed from VS Code.");
 }
 
 /** Prompts for a URL, sitemap, or URL-list file and validates the selected input. */

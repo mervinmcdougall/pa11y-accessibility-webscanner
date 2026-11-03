@@ -2,7 +2,7 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Run Pa11y Web Scanner",
+      "name": "Run Pa11y Accessibility Web Scanner",
       "type": "extensionHost",
       "request": "launch",
       "args": [

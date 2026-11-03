@@ -1,6 +1,6 @@
 {
   "name": "pa11y-webscan",
-  "displayName": "Pa11y Web Scanner",
+  "displayName": "Pa11y Accessibility Web Scanner",
   "description": "Scan websites for accessibility issues with Pa11y CI and review plain-English findings.",
   "version": "0.1.0",
   "publisher": "mervinmcdougall",
@@ -23,22 +23,48 @@
   ],
   "main": "./out/extension.js",
   "activationEvents": [
-    "onCommand:pa11yWebscan.scan"
+    "onCommand:pa11yWebscan.scan",
+    "onCommand:pa11yWebscan.setAiApiKey",
+    "onCommand:pa11yWebscan.clearAiApiKey"
   ],
   "contributes": {
     "commands": [
       {
         "command": "pa11yWebscan.scan",
-        "title": "Pa11y Web Scanner: Start Scan"
+        "title": "Pa11y Accessibility Web Scanner: Start Scan"
+      },
+      {
+        "command": "pa11yWebscan.setAiApiKey",
+        "title": "Pa11y Accessibility Web Scanner: Set AI API Key"
+      },
+      {
+        "command": "pa11yWebscan.clearAiApiKey",
+        "title": "Pa11y Accessibility Web Scanner: Clear AI API Key"
       }
     ],
     "configuration": {
-      "title": "Pa11y Web Scanner",
+      "title": "Pa11y Accessibility Web Scanner",
       "properties": {
         "pa11yWebscan.chromeExecutablePath": {
           "type": "string",
           "default": "",
           "description": "Path to a locally installed Chrome or Chromium executable. Leave empty to use Puppeteer's default cached browser."
+        },
+        "pa11yWebscan.aiProvider": {
+          "type": "string",
+          "enum": ["vscode", "openaiCompatible"],
+          "default": "vscode",
+          "description": "Provider to use for AI-generated finding explanations."
+        },
+        "pa11yWebscan.aiApiBaseUrl": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "description": "Base URL for an OpenAI-compatible Chat Completions API. The extension appends /chat/completions."
+        },
+        "pa11yWebscan.aiModel": {
+          "type": "string",
+          "default": "gpt-4o-mini",
+          "description": "Model identifier to send to the configured external AI API."
         }
       }
     }

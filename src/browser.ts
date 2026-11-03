@@ -22,7 +22,7 @@ export function chooseChromeExecutablePath(
     }
     throw new Error(
       `The configured Chrome executable was not found at "${configured}". ` +
-      "Update Pa11y Web Scanner › Chrome Executable Path in VS Code settings."
+      "Update Pa11y Accessibility Web Scanner › Chrome Executable Path in VS Code settings."
     );
   }
 
@@ -39,7 +39,7 @@ export function chooseChromeExecutablePath(
   throw new Error(
     `Puppeteer's required Chrome browser was not found at "${puppeteerPath}", and no other cached Chrome build is available. ` +
     'From the extension project, run "npm run setup-browser" and retry. ' +
-    "Alternatively, set Pa11y Web Scanner › Chrome Executable Path to an installed Chrome or Chromium executable."
+    "Alternatively, set Pa11y Accessibility Web Scanner › Chrome Executable Path to an installed Chrome or Chromium executable."
   );
 }
 

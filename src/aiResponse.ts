@@ -57,7 +57,13 @@ function findJsonArray(response: string): unknown[] | undefined {
 export function parseExplanations(response: string, expectedIds: Set<string>): Explanation[] {
   const value = findJsonArray(response);
   if (!value) {
-    throw new Error("The language model did not return a readable JSON array. Try explaining the findings again.");
+    const preview = response.slice(0, 500);
+    const truncated = response.length > preview.length ? " (truncated)" : "";
+    throw new Error(
+      `The language model did not return a readable JSON array. ` +
+      `Response length: ${response.length} characters; first ${preview.length}: ${JSON.stringify(preview)}${truncated}. ` +
+      "Try explaining the findings again."
+    );
   }
 
   const explanations: Explanation[] = [];
