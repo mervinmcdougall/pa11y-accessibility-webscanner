@@ -16,13 +16,17 @@ module.exports = function createReporter() {
       });
     },
     afterAll(report) {
-      fs.writeSync(process.stdout.fd, JSON.stringify({
+      const reportPath = process.env.PA11Y_REPORT_PATH;
+      if (!reportPath) {
+        throw new Error("PA11Y_REPORT_PATH is required to save the scan report.");
+      }
+      fs.writeFileSync(reportPath, JSON.stringify({
         total: report.total,
         passes: report.passes,
         errors: report.errors,
         results: report.results,
         failures
-      }));
+      }), "utf8");
     }
   };
 };

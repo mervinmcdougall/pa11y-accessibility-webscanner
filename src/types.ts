@@ -1,3 +1,5 @@
+export type Severity = "Critical" | "Serious" | "Moderate" | "Minor";
+
 export interface ScanIssue {
   type: string;
   code: string;
@@ -5,6 +7,7 @@ export interface ScanIssue {
   context: string;
   selector: string;
   runner: string;
+  impact?: string;
 }
 
 export interface ScanOccurrence {
@@ -16,6 +19,8 @@ export interface ScanOccurrence {
 export interface Finding {
   id: string;
   type: string;
+  severity: Severity;
+  impact?: string;
   code: string;
   message: string;
   count: number;

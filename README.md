@@ -9,12 +9,14 @@ Automated accessibility scans can identify many common issues, but they do not p
 - Scan one HTTP/HTTPS URL, a sitemap URL (including sitemap indexes), or URLs from a text file.
 - Ignore blank lines and lines beginning with `#` in URL list files; repeated URLs are scanned once.
 - Review grouped issues, original messages, affected pages, selectors, and HTML context in a VS Code results view.
+- See a color-coded severity summary with occurrence counts, and matching severity tags beside each detailed finding.
+- Page-level navigation or browser failures are listed in the results alongside findings from pages that scanned successfully.
 - Ask an available VS Code language model for plain-English explanations and practical suggestions.
 - Export the report to Markdown or JSON.
 - Cancel an active Pa11y CI process.
 
 The scanner runs locally through the extension host. AI explanations are opt-in: finding details are sent to the selected VS Code language model only when the user chooses **Explain findings with AI**. Model availability, sign-in, and data handling depend on the configured VS Code provider.
-Pa11y CI reports accessibility errors by default; warnings and notices are not included in this initial release.
+Findings are assessed with both axe and HTML_CodeSniffer, including warnings and notices. Axe impact values map directly to Critical, Serious, Moderate, and Minor. Findings without an axe impact (for example, HTML_CodeSniffer results) map Pa11y errors to Serious, warnings to Moderate, and notices to Minor; Critical is only assigned when axe explicitly reports critical impact.
 
 ## Requirements
 

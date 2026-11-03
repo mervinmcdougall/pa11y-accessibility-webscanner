@@ -1,10 +1,31 @@
 import { createHash } from "node:crypto";
-import { Finding, ScanIssue, ScanResults } from "./types";
+import { severityForType } from "./severity";
+import { Finding, ScanIssue, ScanResults, Severity } from "./types";
+
+const severityOrder: Record<Severity, number> = {
+  Critical: 0,
+  Serious: 1,
+  Moderate: 2,
+  Minor: 3
+};
+
+function findingTitle(finding: Finding): string {
+  return finding.code || finding.message;
+}
+
+export function sortFindings(findings: Finding[]): Finding[] {
+  return [...findings].sort((left, right) =>
+    severityOrder[left.severity] - severityOrder[right.severity] ||
+    findingTitle(left).localeCompare(findingTitle(right), undefined, { sensitivity: "base" }) ||
+    left.message.localeCompare(right.message, undefined, { sensitivity: "base" })
+  );
+}
 
 function stableKey(issue: ScanIssue): string {
   return [
     issue.code.trim().toLowerCase(),
-    issue.message.trim().toLowerCase().replace(/\s+/g, " ")
+    issue.message.trim().toLowerCase().replace(/\s+/g, " "),
+    issue.impact?.trim().toLowerCase() ?? ""
   ].join("\u0000");
 }
 
@@ -19,6 +40,8 @@ export function groupFindings(results: ScanResults): Finding[] {
         finding = {
           id: createHash("sha256").update(key).digest("hex").slice(0, 12),
           type: issue.type,
+          severity: severityForType(issue.type, issue.impact),
+          ...(issue.impact ? { impact: issue.impact } : {}),
           code: issue.code,
           message: issue.message,
           count: 0,
@@ -36,7 +59,5 @@ export function groupFindings(results: ScanResults): Finding[] {
     }
   }
 
-  return [...grouped.values()].sort((left, right) =>
-    left.code.localeCompare(right.code) || left.message.localeCompare(right.message)
-  );
+  return sortFindings([...grouped.values()]);
 }

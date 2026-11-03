@@ -2,6 +2,7 @@ import * as vscode from "vscode";
 import { randomBytes } from "node:crypto";
 import { ScanReport, Finding } from "./types";
 import { toJson, toMarkdown } from "./reports";
+import { summarizeSeverities } from "./severity";
 
 type ExportFormat = "markdown" | "json";
 
@@ -71,9 +72,10 @@ export class ResultsPanel {
     const initialData = JSON.stringify({
       summary: {
         total: this.report.results.total,
-        errors: this.report.results.errors,
+        issueCount: this.report.findings.reduce((count, finding) => count + finding.count, 0),
         failures: this.report.results.failures
       },
+      severityCounts: summarizeSeverities(this.report.findings),
       findings: this.report.findings
     }).replace(/</g, "\\u003c");
     return `<!DOCTYPE html>
@@ -87,6 +89,14 @@ export class ResultsPanel {
     body { color: var(--vscode-foreground); font-family: var(--vscode-font-family); padding: 0 1.5rem 2rem; }
     h1 { font-size: 1.5rem; }
     .summary, .finding { border: 1px solid var(--vscode-panel-border); border-radius: 6px; margin: 1rem 0; padding: 1rem; }
+    .severity-table { border-collapse: collapse; width: auto; }
+    .severity-table th, .severity-table td { border-bottom: 1px solid var(--vscode-panel-border); padding: .5rem .75rem; text-align: left; }
+    .severity-table td:last-child, .severity-table th:last-child { text-align: right; }
+    .severity-tag { border-radius: 999px; display: inline-block; font-size: .75rem; font-weight: 700; padding: .15rem .55rem; }
+    .severity-critical { background: #fde8e7; color: #a4262c; }
+    .severity-serious { background: #fce8d5; color: #8a3b00; }
+    .severity-moderate { background: #fff4ce; color: #7a4f01; }
+    .severity-minor { background: #e8f2ff; color: #174ea6; }
     .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
     button { background: var(--vscode-button-background); border: 0; border-radius: 2px; color: var(--vscode-button-foreground); cursor: pointer; padding: .5rem .8rem; }
     button:hover { background: var(--vscode-button-hoverBackground); }
@@ -126,8 +136,30 @@ export class ResultsPanel {
     function render(findings) {
       summary.replaceChildren(
         textElement("p", initial.summary.total + " pages scanned"),
-        textElement("p", initial.summary.errors + " accessibility issues across " + findings.length + " deduplicated findings")
+        textElement("p", initial.summary.issueCount + " issues found across " + findings.length + " deduplicated findings")
       );
+      const severityHeading = textElement("h2", "Findings by severity");
+      const severityTable = document.createElement("table");
+      severityTable.className = "severity-table";
+      severityTable.setAttribute("aria-label", "Findings by severity");
+      const tableHead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
+      headerRow.append(textElement("th", "Severity"));
+      headerRow.append(textElement("th", "Number found"));
+      tableHead.append(headerRow);
+      severityTable.append(tableHead);
+      const tableBody = document.createElement("tbody");
+      for (const entry of initial.severityCounts) {
+        const row = document.createElement("tr");
+        const severityCell = document.createElement("td");
+        const severityTag = textElement("span", entry.severity, "severity-tag severity-" + entry.severity.toLowerCase());
+        severityCell.append(severityTag);
+        row.append(severityCell);
+        row.append(textElement("td", String(entry.count)));
+        tableBody.append(row);
+      }
+      severityTable.append(tableBody);
+      summary.append(severityHeading, severityTable);
       if (initial.summary.failures.length) {
         summary.append(textElement("h2", "Pages that could not be scanned"));
         const failures = document.createElement("ul");
@@ -144,7 +176,13 @@ export class ResultsPanel {
       for (const finding of findings) {
         const article = document.createElement("article");
         article.className = "finding";
-        article.append(textElement("h2", finding.code + " — " + finding.type));
+        const heading = document.createElement("h2");
+        const severityLabel = finding.severity.toLowerCase();
+        heading.append(
+          textElement("span", severityLabel.toUpperCase(), "severity-tag severity-" + severityLabel),
+          document.createTextNode(" " + finding.code)
+        );
+        article.append(heading);
         article.append(textElement("p", finding.message));
         article.append(textElement("p", finding.count + " occurrence(s)", "muted"));
         if (finding.explanation) {

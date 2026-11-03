@@ -1,9 +1,9 @@
 import { spawn } from "node:child_process";
 import { resolveChromeExecutablePath } from "./browser";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { CancellationToken } from "vscode";
+import type { CancellationToken } from "vscode";
 import { ScanInput } from "./inputs";
 import { ScanIssue, ScanResults } from "./types";
 
@@ -26,22 +26,29 @@ function toIssue(value: unknown): ScanIssue | undefined {
     return undefined;
   }
 
+  const runnerExtras = isRecord(value.runnerExtras) ? value.runnerExtras : undefined;
+  const impact = runnerExtras && typeof runnerExtras.impact === "string"
+    ? runnerExtras.impact
+    : undefined;
+
   return {
     type: stringValue("type"),
     code: stringValue("code") || "unknown",
     message: stringValue("message") || "No description provided",
     context: stringValue("context"),
     selector: stringValue("selector"),
-    runner: stringValue("runner")
+    runner: stringValue("runner"),
+    ...(impact ? { impact } : {})
   };
 }
 
-function parseResults(stdout: string): ScanResults {
+export function parseResults(output: string): ScanResults {
   let value: unknown;
   try {
-    value = JSON.parse(stdout);
-  } catch {
-    throw new Error("Pa11y CI returned invalid JSON output.");
+    value = JSON.parse(output);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Pa11y CI produced an invalid report file (${reason}).`);
   }
   if (!isRecord(value) || !isRecord(value.results)) {
     throw new Error("Pa11y CI returned an unexpected report format.");
@@ -96,11 +103,15 @@ export async function scan(
     const puppeteerPath = require("puppeteer").executablePath() as string;
     const browserPath = await resolveChromeExecutablePath(chromeExecutablePath, puppeteerPath);
     const configPath = path.join(temporaryDirectory, "pa11yci.json");
+    const reportPath = path.join(temporaryDirectory, "pa11y-report.json");
     const config = {
       defaults: {
         timeout: 30000,
         concurrency: 1,
         threshold: 0,
+        runners: ["axe", "htmlcs"],
+        includeWarnings: true,
+        includeNotices: true,
         chromeLaunchConfig: { executablePath: browserPath }
       },
       urls: input.kind === "urlList"
@@ -126,6 +137,7 @@ export async function scan(
     return await new Promise<ScanResults>((resolve, reject) => {
       const child = spawn(process.execPath, args, {
         cwd: temporaryDirectory,
+        env: { ...process.env, PA11Y_REPORT_PATH: reportPath },
         windowsHide: true,
         stdio: ["ignore", "pipe", "pipe"]
       });
@@ -187,7 +199,7 @@ export async function scan(
         finishError(new Error(`Unable to start Pa11y CI: ${error.message}`));
       });
 
-      child.on("close", (code, signal) => {
+      child.on("close", async (code, signal) => {
         cancellationSubscription.dispose();
         if (cancelled || token.isCancellationRequested) {
           finishError(new Error("Scan cancelled."));
@@ -204,8 +216,19 @@ export async function scan(
           return;
         }
         try {
-          resolve(parseResults(stdout));
+          const reportStats = await stat(reportPath);
+          if (reportStats.size > outputLimit) {
+            finishError(new Error("Pa11y CI report exceeded the 64 MB safety limit."));
+            return;
+          }
+          resolve(parseResults(await readFile(reportPath, "utf8")));
         } catch (error) {
+          if (isRecord(error) && error.code === "ENOENT") {
+            finishError(new Error(
+              `Pa11y CI did not create its report file. ${stderr.trim() || "Check the browser launch and scan errors."}`
+            ));
+            return;
+          }
           finishError(error instanceof Error ? error : new Error(String(error)));
         }
       });
