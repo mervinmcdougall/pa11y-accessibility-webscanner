@@ -2,10 +2,12 @@ import { ScanReport } from "./types";
 import { summarizeSeverities } from "./severity";
 import { sortFindings } from "./findings";
 
+/** Escapes Markdown syntax so report data is displayed as text. */
 function markdownText(value: string): string {
   return value.replace(/[\\`*_{}[\]()#+.!|>-]/g, "\\$&");
 }
 
+/** Formats a severity label as a colored Markdown HTML tag. */
 function severityTag(severity: string): string {
   const colors = {
     Critical: { background: "#fde8e7", foreground: "#a4262c" },
@@ -17,6 +19,7 @@ function severityTag(severity: string): string {
   return `<span style="display:inline-block;padding:2px 8px;border-radius:12px;background-color:${color.background};color:${color.foreground};font-weight:600">${severity.toUpperCase()}</span>`;
 }
 
+/** Renders scan totals, findings, occurrences, and page failures as Markdown. */
 export function toMarkdown(report: ScanReport): string {
   const lines = [
     "# Pa11y Accessibility Scan",
@@ -84,6 +87,7 @@ export function toMarkdown(report: ScanReport): string {
   return lines.join("\n");
 }
 
+/** Serializes the complete scan report as formatted JSON. */
 export function toJson(report: ScanReport): string {
   return `${JSON.stringify(report, null, 2)}\n`;
 }

@@ -1,55 +1,8 @@
 import * as vscode from "vscode";
+import { Explanation, parseExplanations } from "./aiResponse";
 import { Finding } from "./types";
 
-interface Explanation {
-  id: string;
-  explanation: string;
-  recommendation: string;
-}
-
-function parseExplanations(response: string, expectedIds: Set<string>): Explanation[] {
-  const json = response
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/\s*```$/, "");
-  let value: unknown;
-  try {
-    value = JSON.parse(json);
-  } catch {
-    throw new Error("The language model returned an invalid response. Try explaining the findings again.");
-  }
-  if (!Array.isArray(value)) {
-    throw new Error("The language model returned an unexpected response. Try explaining the findings again.");
-  }
-
-  const explanations: Explanation[] = [];
-  for (const item of value) {
-    if (
-      typeof item === "object" &&
-      item !== null &&
-      "id" in item &&
-      "explanation" in item &&
-      "recommendation" in item &&
-      typeof item.id === "string" &&
-      expectedIds.has(item.id) &&
-      typeof item.explanation === "string" &&
-      typeof item.recommendation === "string"
-    ) {
-      explanations.push({
-        id: item.id,
-        explanation: item.explanation,
-        recommendation: item.recommendation
-      });
-    }
-  }
-  const returnedIds = new Set(explanations.map((item) => item.id));
-  const missingIds = [...expectedIds].filter((id) => !returnedIds.has(id));
-  if (missingIds.length) {
-    throw new Error("The language model did not explain every finding. Try explaining the findings again.");
-  }
-  return explanations;
-}
-
+/** Requests plain-English explanations from the selected VS Code language model in small batches. */
 export async function explainFindings(
   findings: Finding[],
   token: vscode.CancellationToken

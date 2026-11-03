@@ -3,6 +3,7 @@ export type ScanInput =
   | { kind: "sitemap"; value: string }
   | { kind: "urlList"; urls: string[] };
 
+/** Normalizes an absolute HTTP(S) URL and rejects unsupported schemes or embedded credentials. */
 export function normalizeHttpUrl(value: string): string {
   let url: URL;
   try {
@@ -21,6 +22,7 @@ export function normalizeHttpUrl(value: string): string {
   return url.href;
 }
 
+/** Parses, validates, and deduplicates URLs from a newline-separated text list. */
 export function parseUrlList(contents: string): string[] {
   const urls = new Set<string>();
   const invalid: string[] = [];

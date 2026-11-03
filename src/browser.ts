@@ -1,5 +1,6 @@
 import { statSync } from "node:fs";
 
+/** Returns whether a path points to an existing file. */
 function isFile(filePath: string): boolean {
   try {
     return statSync(filePath).isFile();
@@ -8,6 +9,7 @@ function isFile(filePath: string): boolean {
   }
 }
 
+/** Selects the configured, pinned, or cached Chrome executable, or reports an actionable error. */
 export function chooseChromeExecutablePath(
   configuredPath: string,
   puppeteerPath: string,
@@ -41,6 +43,7 @@ export function chooseChromeExecutablePath(
   );
 }
 
+/** Finds a usable cached Chrome when the configured and Puppeteer-pinned executables are unavailable. */
 export async function resolveChromeExecutablePath(
   configuredPath: string,
   puppeteerPath: string

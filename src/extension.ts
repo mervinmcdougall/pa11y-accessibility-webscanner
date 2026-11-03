@@ -7,6 +7,7 @@ import { ResultsPanel } from "./resultsPanel";
 import { scan } from "./scanner";
 import { Finding, ScanReport } from "./types";
 
+/** Registers the scan command when the extension activates. */
 export function activate(context: vscode.ExtensionContext): void {
   // Keep the extension dormant until the user explicitly starts a scan.
   context.subscriptions.push(
@@ -14,8 +15,10 @@ export function activate(context: vscode.ExtensionContext): void {
   );
 }
 
+/** Performs extension shutdown cleanup; no long-lived resources need disposal. */
 export function deactivate(): void {}
 
+/** Collects scan input, runs Pa11y, and connects results to explanations and report exports. */
 async function startScan(context: vscode.ExtensionContext): Promise<void> {
   const input = await chooseInput();
   if (!input) {
@@ -106,6 +109,7 @@ async function startScan(context: vscode.ExtensionContext): Promise<void> {
   }
 }
 
+/** Prompts for a URL, sitemap, or URL-list file and validates the selected input. */
 async function chooseInput(): Promise<ScanInput | undefined> {
   const choice = await vscode.window.showQuickPick(
     [

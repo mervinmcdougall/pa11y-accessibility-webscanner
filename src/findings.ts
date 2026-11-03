@@ -9,10 +9,12 @@ const severityOrder: Record<Severity, number> = {
   Minor: 3
 };
 
+/** Chooses the rule code, falling back to the message, for finding ordering. */
 function findingTitle(finding: Finding): string {
   return finding.code || finding.message;
 }
 
+/** Returns findings ordered by severity, title, then message without mutating the input. */
 export function sortFindings(findings: Finding[]): Finding[] {
   // Keep the most severe findings first; titles and messages make ties predictable.
   return [...findings].sort((left, right) =>
@@ -22,6 +24,7 @@ export function sortFindings(findings: Finding[]): Finding[] {
   );
 }
 
+/** Builds a normalized grouping key that keeps different axe impacts distinct. */
 function stableKey(issue: ScanIssue): string {
   // Include axe impact so distinct severity levels for the same rule stay separate.
   return [
@@ -31,6 +34,7 @@ function stableKey(issue: ScanIssue): string {
   ].join("\u0000");
 }
 
+/** Groups equivalent issues across pages while retaining every occurrence, then sorts them. */
 export function groupFindings(results: ScanResults): Finding[] {
   const grouped = new Map<string, Finding>();
 

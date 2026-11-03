@@ -1,4 +1,4 @@
-# Pa11y Web Scanner
+# Pa11y Accessibility Web Scanner
 
 A Visual Studio Code extension for running [Pa11y CI](https://github.com/pa11y/pa11y-ci) against a website URL, sitemap, or newline-delimited URL text file. It groups matching findings across pages, keeps each original page and selector, and provides an optional plain-English explanation through the VS Code Language Model API.
 

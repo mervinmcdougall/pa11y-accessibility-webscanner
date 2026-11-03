@@ -10,6 +10,7 @@ export class ResultsPanel {
   private readonly panel: vscode.WebviewPanel;
   private disposed = false;
 
+  /** Creates the results webview and wires its actions to the supplied handlers. */
   constructor(
     private report: ScanReport,
     private readonly onExplain: () => Promise<void>,
@@ -43,31 +44,38 @@ export class ResultsPanel {
     });
   }
 
+  /** Indicates whether the user has closed the results panel. */
   get isDisposed(): boolean {
     return this.disposed;
   }
 
+  /** Returns the current findings displayed and exported by this panel. */
   get findings(): Finding[] {
     return this.report.findings;
   }
 
+  /** Registers a listener for when the results panel is disposed. */
   onDidDispose(listener: () => void): vscode.Disposable {
     return this.panel.onDidDispose(listener);
   }
 
+  /** Replaces the findings and refreshes the webview. */
   updateFindings(findings: Finding[]): void {
     this.report = { ...this.report, findings };
     void this.panel.webview.postMessage({ type: "findings", findings });
   }
 
+  /** Updates the webview's accessible status message. */
   setStatus(message: string): void {
     void this.panel.webview.postMessage({ type: "status", message });
   }
 
+  /** Serializes the current report in the requested format. */
   export(format: ExportFormat): string {
     return format === "markdown" ? toMarkdown(this.report) : toJson(this.report);
   }
 
+  /** Builds the self-contained, nonce-protected webview and its initial report data. */
   private createHtml(): string {
     const nonce = randomBytes(16).toString("base64");
     // Escape '<' before embedding scan/model content in the inline JSON script element.
@@ -128,6 +136,7 @@ export class ResultsPanel {
     const findingsRoot = document.getElementById("findings");
     const status = document.getElementById("status");
 
+    /** Creates an element with untrusted content assigned as text, not markup. */
     function textElement(tag, text, className) {
       const element = document.createElement(tag);
       // Scan context and model output are untrusted; render them as text, never HTML.
@@ -136,6 +145,7 @@ export class ResultsPanel {
       return element;
     }
 
+    /** Renders the scan summary, failures, and finding details into the webview. */
     function render(findings) {
       summary.replaceChildren(
         textElement("p", initial.summary.total + " pages scanned"),

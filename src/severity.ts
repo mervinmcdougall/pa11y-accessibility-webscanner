@@ -2,6 +2,7 @@ import { Finding, Severity } from "./types";
 
 export type { Severity } from "./types";
 
+/** Maps axe impact to severity, falling back to the Pa11y result type. */
 export function severityForType(type: string, impact?: string): Severity {
   // Use axe's direct impact value where available; Pa11y levels are only a fallback.
   switch (impact?.trim().toLowerCase()) {
@@ -27,6 +28,7 @@ export function severityForType(type: string, impact?: string): Severity {
   }
 }
 
+/** Totals issue occurrences for each severity level. */
 export function summarizeSeverities(
   findings: Finding[]
 ): Array<{ severity: Severity; count: number }> {

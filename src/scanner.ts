@@ -11,10 +11,12 @@ const outputLimit = 64 * 1024 * 1024;
 const errorOutputLimit = 1024 * 1024;
 const progressPrefix = "PA11Y_PROGRESS:";
 
+/** Narrows an unknown value to a non-null, non-array object. */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** Converts a Pa11y issue object into the scanner's validated issue shape. */
 function toIssue(value: unknown): ScanIssue | undefined {
   if (!isRecord(value)) {
     return undefined;
@@ -43,6 +45,7 @@ function toIssue(value: unknown): ScanIssue | undefined {
   };
 }
 
+/** Parses and validates a Pa11y report, including page-level scan failures. */
 export function parseResults(output: string): ScanResults {
   let value: unknown;
   try {
@@ -88,6 +91,7 @@ export function parseResults(output: string): ScanResults {
   };
 }
 
+/** Runs Pa11y CI in an isolated temporary directory and returns its parsed report. */
 export async function scan(
   input: ScanInput,
   reporterPath: string,
