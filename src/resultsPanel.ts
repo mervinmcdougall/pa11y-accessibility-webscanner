@@ -13,7 +13,7 @@ export class ResultsPanel {
   /** Creates the results webview and wires its actions to the supplied handlers. */
   constructor(
     private report: ScanReport,
-    private readonly onExplain: () => Promise<void>,
+    private readonly onExplain: (findingId: string) => Promise<void>,
     private readonly onExport: (format: ExportFormat) => Promise<void>
   ) {
     this.panel = vscode.window.createWebviewPanel(
@@ -31,8 +31,15 @@ export class ResultsPanel {
       if (typeof message !== "object" || message === null || !("type" in message)) {
         return;
       }
-      if (message.type === "explain") {
-        void this.onExplain();
+      if (message.type === "explain" && "findingId" in message && typeof message.findingId === "string") {
+        void this.onExplain(message.findingId);
+      } else if (message.type === "copyExplanation" && "content" in message && typeof message.content === "string") {
+        void vscode.env.clipboard.writeText(message.content).then(
+          () => this.setStatus("AI explanation copied to the clipboard."),
+          (error: unknown) => this.setStatus(
+            `Could not copy the AI explanation: ${error instanceof Error ? error.message : String(error)}`
+          )
+        );
       } else if (message.type === "exportMarkdown") {
         void this.onExport("markdown");
       } else if (message.type === "exportJson") {
@@ -59,10 +66,26 @@ export class ResultsPanel {
     return this.panel.onDidDispose(listener);
   }
 
-  /** Replaces the findings and refreshes the webview. */
-  updateFindings(findings: Finding[]): void {
-    this.report = { ...this.report, findings };
-    void this.panel.webview.postMessage({ type: "findings", findings });
+  /** Displays the returned explanation in the webview's accessible popup dialog. */
+  showExplanationPopup(finding: Finding, explanation: { explanation: string; recommendation: string }): void {
+    void this.panel.webview.postMessage({
+      type: "explanation",
+      finding: {
+        code: finding.code,
+        title: finding.message,
+        locations: [...new Set(finding.occurrences.map((occurrence) =>
+          occurrence.selector
+            ? `${occurrence.url} — ${occurrence.selector}`
+            : occurrence.url
+        ))]
+      },
+      explanation
+    });
+  }
+
+  /** Marks an individual finding explanation request as pending or complete. */
+  setExplanationPending(findingId: string, pending: boolean): void {
+    void this.panel.webview.postMessage({ type: "explanationPending", findingId, pending });
   }
 
   /** Updates the webview's accessible status message. */
@@ -116,18 +139,28 @@ export class ResultsPanel {
     .occurrences { padding-left: 1.25rem; }
     .occurrences li { margin: .75rem 0; overflow-wrap: anywhere; }
     pre { overflow-x: auto; white-space: pre-wrap; }
+    dialog { background: var(--vscode-editor-background); border: 1px solid var(--vscode-panel-border); border-radius: 6px; color: var(--vscode-foreground); max-width: min(42rem, 85vw); }
+    dialog::backdrop { background: rgb(0 0 0 / 45%); }
+    dialog menu { display: flex; justify-content: flex-end; margin-bottom: 0; padding: 0; }
   </style>
 </head>
 <body>
   <h1>Pa11y Accessibility Results</h1>
   <section id="summary" class="summary" aria-label="Scan summary"></section>
   <div class="actions">
-    <button id="explain" type="button">Explain findings with AI</button>
     <button id="exportMarkdown" type="button">Export Markdown</button>
     <button id="exportJson" type="button">Export JSON</button>
   </div>
   <p id="status" role="status" aria-live="polite"></p>
   <main id="findings"></main>
+  <dialog id="explanationDialog" aria-labelledby="explanationTitle" aria-describedby="explanationBody">
+    <h2 id="explanationTitle"></h2>
+    <div id="explanationBody"></div>
+    <menu>
+      <button id="copyExplanation" type="button">Copy explanation</button>
+      <button id="closeExplanation" type="button">Close</button>
+    </menu>
+  </dialog>
   <script nonce="${nonce}" id="initial-data" type="application/json">${initialData}</script>
   <script nonce="${nonce}">
     const vscode = acquireVsCodeApi();
@@ -135,6 +168,10 @@ export class ResultsPanel {
     const summary = document.getElementById("summary");
     const findingsRoot = document.getElementById("findings");
     const status = document.getElementById("status");
+    const explanationDialog = document.getElementById("explanationDialog");
+    const pendingExplanations = new Set();
+    const explanationQueue = [];
+    let currentExplanationContent = "";
 
     /** Creates an element with untrusted content assigned as text, not markup. */
     function textElement(tag, text, className) {
@@ -206,6 +243,14 @@ export class ResultsPanel {
           article.append(textElement("h3", "Suggested fix"));
           article.append(textElement("p", finding.recommendation));
         }
+        const explainButton = textElement(
+          "button",
+          pendingExplanations.has(finding.id) ? "Explaining…" : "Explain this finding with AI"
+        );
+        explainButton.type = "button";
+        explainButton.dataset.findingId = finding.id;
+        explainButton.disabled = pendingExplanations.has(finding.id);
+        article.append(explainButton);
         const list = document.createElement("ul");
         list.className = "occurrences";
         for (const occurrence of finding.occurrences) {
@@ -222,14 +267,83 @@ export class ResultsPanel {
       }
     }
 
-    document.getElementById("explain").addEventListener("click", () => {
-      status.textContent = "Requesting plain-English explanations…";
-      vscode.postMessage({ type: "explain" });
+    function showNextExplanation() {
+      if (explanationDialog.open || !explanationQueue.length) return;
+      const { finding, explanation } = explanationQueue.shift();
+      document.getElementById("explanationTitle").textContent = "AI explanation";
+      const body = document.getElementById("explanationBody");
+      const title = textElement("h3", finding.title);
+      const rule = textElement("p", "Rule: " + finding.code, "muted");
+      const explanationHeading = textElement("h3", "In plain English");
+      const explanationText = textElement("p", explanation.explanation);
+      const recommendationHeading = textElement("h3", "Suggested fix");
+      const recommendationText = textElement("p", explanation.recommendation);
+      const locationsHeading = textElement("h3", "Locations");
+      const locations = document.createElement("ul");
+      for (const location of finding.locations) {
+        locations.append(textElement("li", location));
+      }
+      body.replaceChildren(
+        title,
+        rule,
+        explanationHeading,
+        explanationText,
+        recommendationHeading,
+        recommendationText,
+        locationsHeading,
+        locations
+      );
+      currentExplanationContent = [
+        finding.title,
+        "Rule: " + finding.code,
+        "",
+        "In plain English:",
+        explanation.explanation,
+        "",
+        "Suggested fix:",
+        explanation.recommendation,
+        "",
+        "Locations:",
+        ...finding.locations.map((location) => "- " + location)
+      ].join("\\n");
+      explanationDialog.showModal();
+    }
+
+    findingsRoot.addEventListener("click", (event) => {
+      const button = event.target.closest("button[data-finding-id]");
+      if (!button) return;
+      const findingId = button.dataset.findingId;
+      if (!findingId || pendingExplanations.has(findingId)) return;
+      pendingExplanations.add(findingId);
+      render(initial.findings);
+      status.textContent = "Requesting an explanation for this finding…";
+      vscode.postMessage({ type: "explain", findingId });
     });
     document.getElementById("exportMarkdown").addEventListener("click", () => vscode.postMessage({ type: "exportMarkdown" }));
     document.getElementById("exportJson").addEventListener("click", () => vscode.postMessage({ type: "exportJson" }));
+    document.getElementById("copyExplanation").addEventListener("click", () => {
+      vscode.postMessage({ type: "copyExplanation", content: currentExplanationContent });
+    });
+    document.getElementById("closeExplanation").addEventListener("click", () => explanationDialog.close());
+    explanationDialog.addEventListener("close", showNextExplanation);
     window.addEventListener("message", (event) => {
-      if (event.data.type === "findings") render(event.data.findings);
+      if (event.data.type === "findings") {
+        initial.findings = event.data.findings;
+        render(initial.findings);
+      }
+      if (event.data.type === "explanationPending") {
+        if (event.data.pending) pendingExplanations.add(event.data.findingId);
+        else pendingExplanations.delete(event.data.findingId);
+        render(initial.findings);
+      }
+      if (event.data.type === "explanation") {
+        explanationQueue.push({
+          finding: event.data.finding,
+          explanation: event.data.explanation
+        });
+        showNextExplanation();
+        status.textContent = "AI explanation received.";
+      }
       if (event.data.type === "status") status.textContent = event.data.message;
     });
     render(initial.findings);

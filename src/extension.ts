@@ -1,6 +1,6 @@
 import * as vscode from "vscode";
 import path from "node:path";
-import { explainFindings } from "./ai";
+import { explainFinding } from "./ai";
 import { groupFindings } from "./findings";
 import { normalizeHttpUrl, parseUrlList, ScanInput } from "./inputs";
 import { ResultsPanel } from "./resultsPanel";
@@ -28,7 +28,7 @@ async function startScan(context: vscode.ExtensionContext): Promise<void> {
   }
 
   let currentPanel: ResultsPanel | undefined;
-  let aiCancellation: vscode.CancellationTokenSource | undefined;
+  const aiCancellations = new Map<string, vscode.CancellationTokenSource>();
   const reporterPath = path.join(context.extensionPath, "media", "pa11y-reporter.cjs");
   try {
     // Pa11y CI runs as a child process so cancellation can stop the browser scan.
@@ -54,23 +54,29 @@ async function startScan(context: vscode.ExtensionContext): Promise<void> {
       findings: groupFindings(results)
     };
 
-    // Keep scan data in the host so the webview can request AI explanations and exports.
+    // Keep scan data in the host so the webview can request individual explanations and exports.
     currentPanel = new ResultsPanel(
       report,
-      async () => {
-        if (!currentPanel || currentPanel.isDisposed || aiCancellation) {
+      async (findingId) => {
+        if (!currentPanel || currentPanel.isDisposed || aiCancellations.has(findingId)) {
           return;
         }
-        aiCancellation = new vscode.CancellationTokenSource();
+        const finding = currentPanel.findings.find((item) => item.id === findingId);
+        if (!finding) {
+          return;
+        }
+        const cancellation = new vscode.CancellationTokenSource();
+        aiCancellations.set(findingId, cancellation);
+        currentPanel.setExplanationPending(findingId, true);
         const aiConfiguration = vscode.workspace.getConfiguration("pa11yWebscan");
         const provider = aiConfiguration.get<"vscode" | "openaiCompatible">("aiProvider", "vscode");
         currentPanel.setStatus(
           provider === "vscode"
-            ? "Generating explanations with the selected VS Code language model."
-            : "Generating explanations with the configured external AI service. Finding details are sent to that service."
+            ? "Generating an explanation with the selected VS Code language model."
+            : "Generating an explanation with the configured external AI service. Finding details are sent to that service."
         );
         try {
-          const explanations = await explainFindings(currentPanel.findings, aiCancellation.token, {
+          const explanation = await explainFinding(finding, cancellation.token, {
             provider,
             baseUrl: aiConfiguration.get<string>("aiApiBaseUrl", "https://api.openai.com/v1"),
             model: aiConfiguration.get<string>("aiModel", "gpt-4o-mini"),
@@ -78,19 +84,20 @@ async function startScan(context: vscode.ExtensionContext): Promise<void> {
               ? { apiKey: await context.secrets.get("pa11yWebscan.aiApiKey") }
               : {})
           });
-          const findings = currentPanel.findings.map((finding) => {
-            const explanation = explanations.get(finding.id);
-            return explanation
-              ? { ...finding, explanation: explanation.explanation, recommendation: explanation.recommendation }
-              : finding;
-          });
-          currentPanel.updateFindings(findings);
-          currentPanel.setStatus("AI explanations are ready. Review them before using or sharing the recommendations.");
+          if (!currentPanel.isDisposed) {
+            currentPanel.showExplanationPopup(finding, explanation);
+            currentPanel.setStatus("AI explanation is ready. It is shown in the popup and is not added to the report.");
+          }
         } catch (error) {
-          currentPanel.setStatus(error instanceof Error ? error.message : String(error));
+          if (!currentPanel.isDisposed) {
+            currentPanel.setStatus(error instanceof Error ? error.message : String(error));
+          }
         } finally {
-          aiCancellation.dispose();
-          aiCancellation = undefined;
+          cancellation.dispose();
+          aiCancellations.delete(findingId);
+          if (!currentPanel.isDisposed) {
+            currentPanel.setExplanationPending(findingId, false);
+          }
         }
       },
       async (format) => {
@@ -115,7 +122,11 @@ async function startScan(context: vscode.ExtensionContext): Promise<void> {
         }
       }
     );
-    currentPanel.onDidDispose(() => aiCancellation?.cancel());
+    currentPanel.onDidDispose(() => {
+      for (const cancellation of aiCancellations.values()) {
+        cancellation.cancel();
+      }
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     if (message !== "Scan cancelled.") {

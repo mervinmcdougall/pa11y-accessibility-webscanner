@@ -15,7 +15,7 @@ Automated accessibility scans can identify many common issues, but they do not p
 - Export the report to Markdown or JSON.
 - Cancel an active Pa11y CI process.
 
-The scanner runs locally through the extension host. AI explanations are opt-in: finding details are sent to the configured AI provider only when the user chooses **Explain findings with AI**. Model availability, sign-in, and data handling depend on that provider. External API keys are stored in VS Code SecretStorage; when using an external provider, finding details are sent to the configured service and may incur charges under its account.
+The scanner runs locally through the extension host. AI explanations are opt-in: details for an individual finding are sent to the configured AI provider only when the user chooses **Explain this finding with AI** on that finding. Model availability, sign-in, and data handling depend on that provider. External API keys are stored in VS Code SecretStorage; when using an external provider, finding details are sent to the configured service and may incur charges under its account.
 Findings are assessed with both axe and HTML_CodeSniffer, including warnings and notices. Axe impact values map directly to Critical, Serious, Moderate, and Minor. Findings without an axe impact (for example, HTML_CodeSniffer results) map Pa11y errors to Serious, warnings to Moderate, and notices to Minor; Critical is only assigned when axe explicitly reports critical impact.
 
 ## Requirements
@@ -43,7 +43,7 @@ Run **Pa11y Accessibility Web Scanner: Clear AI API Key** to remove the saved ke
 
 1. Run **Pa11y Accessibility Web Scanner: Start Scan** from the Command Palette.
 2. Choose a URL, sitemap, or text file of URLs.
-3. Review the grouped scan results. Choose **Explain findings with AI** to request model-generated explanations, or export the raw/grouped report as Markdown or JSON.
+3. Review the grouped scan results. Choose **Explain this finding with AI** on a finding to request its explanation in a popup, or export the report as Markdown or JSON.
 
 URL list files should contain one absolute HTTP/HTTPS URL per line. Blank lines and `#` comments are ignored. Invalid entries are reported before the scan begins.
 
