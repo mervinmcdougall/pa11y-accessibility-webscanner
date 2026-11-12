@@ -37,6 +37,17 @@ test("exports an accessible Markdown report with explanations and occurrences", 
   assert.ok(markdown.includes("Selector: `input[name=q]`"));
 });
 
+test("formats the source on its own line in the Markdown export", () => {
+  const markdown = toMarkdown({
+    ...report,
+    findings: [{
+      ...report.findings[0],
+      explanation: "Use a label.\n\n**Source:** *https://dequeuniversity.com/rules/axe/label*"
+    }]
+  });
+  assert.ok(markdown.includes("\n\n**Source:** *https://dequeuniversity\\.com/rules/axe/label*"));
+});
+
 test("exports finding details in Critical, Serious, Moderate, Minor order and sorts titles", () => {
   const findings = [
     { ...report.findings[0], id: "minor-z", severity: "Minor" as const, code: "Zulu" },

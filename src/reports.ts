@@ -7,6 +7,16 @@ function markdownText(value: string): string {
   return value.replace(/[\\`*_{}[\]()#+.!|>-]/g, "\\$&");
 }
 
+function markdownExplanation(value: string): string {
+  const match = value.match(/(?:^|\s)(?:\*\*)?Source:(?:\*\*)?\s*(?:\*([^\r\n]*)\*|([^\r\n]*))$/i);
+  if (!match) {
+    return markdownText(value);
+  }
+  const body = markdownText(value.slice(0, match.index).trimEnd());
+  const source = markdownText(match[1] || match[2] || "");
+  return `${body}${body ? "\n\n" : ""}**Source:** *${source}*`;
+}
+
 /** Formats a severity label as a colored Markdown HTML tag. */
 function severityTag(severity: string): string {
   const colors = {
@@ -60,7 +70,7 @@ export function toMarkdown(report: ScanReport): string {
       ""
     );
     if (finding.explanation) {
-      lines.push(`**In plain English:** ${markdownText(finding.explanation)}`, "");
+      lines.push(`**In plain English:** ${markdownExplanation(finding.explanation)}`, "");
     }
     if (finding.recommendation) {
       lines.push(`**Suggested fix:** ${markdownText(finding.recommendation)}`, "");

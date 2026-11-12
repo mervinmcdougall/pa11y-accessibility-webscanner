@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { parseExplanations } from "../aiResponse";
+import { parseExplanations, withSourceLabel } from "../aiResponse";
 
 const expectedIds = new Set(["finding-1"]);
 const explanation = {
@@ -29,4 +29,22 @@ test("rejects output without a readable JSON array", () => {
 
 test("rejects a JSON array that omits a requested finding", () => {
   assert.throws(() => parseExplanations("[]", expectedIds), /did not explain every finding/);
+});
+
+test("replaces a model-provided source label with the supplied source URL", () => {
+  assert.deepEqual(
+    withSourceLabel({ ...explanation, explanation: `${explanation.explanation} Source: Training` },
+      "https://dequeuniversity.com/rules/axe/label"),
+    {
+      ...explanation,
+      explanation: `${explanation.explanation}\n\n**Source:** *https://dequeuniversity.com/rules/axe/label*`
+    }
+  );
+});
+
+test("puts an internal training source on its own formatted line", () => {
+  assert.equal(
+    withSourceLabel(explanation, "Training").explanation,
+    `${explanation.explanation}\n\n**Source:** *Training*`
+  );
 });

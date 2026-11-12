@@ -4,6 +4,17 @@ export interface Explanation {
   recommendation: string;
 }
 
+/** Ensures a fetched source is cited in the explanation, even if the model omits the label. */
+export function withSourceLabel(explanation: Explanation, source: string): Explanation {
+  const text = explanation.explanation
+    .replace(/\s*(?:\*\*)?Source:(?:\*\*)?\s*[^\r\n]*$/i, "")
+    .trim();
+  return {
+    ...explanation,
+    explanation: `${text}\n\n**Source:** *${source}*`
+  };
+}
+
 function findJsonArray(response: string): unknown[] | undefined {
   const text = response.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
   try {

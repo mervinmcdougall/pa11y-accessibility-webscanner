@@ -182,6 +182,26 @@ export class ResultsPanel {
       return element;
     }
 
+    /** Formats a trailing source citation without treating model text as HTML. */
+    function explanationElement(text) {
+      const element = document.createElement("p");
+      const match = text.match(/(?:^|\\s)(?:\\*\\*)?Source:(?:\\*\\*)?\\s*(?:\\*([^\\r\\n]*)\\*|([^\\r\\n]*))$/i);
+      if (!match) {
+        element.textContent = text;
+        return element;
+      }
+      const body = text.slice(0, match.index).trimEnd();
+      if (body) {
+        element.append(document.createTextNode(body), document.createElement("br"), document.createElement("br"));
+      }
+      const label = document.createElement("strong");
+      label.textContent = "Source:";
+      const value = document.createElement("em");
+      value.textContent = match[1] || match[2] || "";
+      element.append(label, document.createTextNode(" "), value);
+      return element;
+    }
+
     /** Renders the scan summary, failures, and finding details into the webview. */
     function render(findings) {
       summary.replaceChildren(
@@ -237,7 +257,7 @@ export class ResultsPanel {
         article.append(textElement("p", finding.count + " occurrence(s)", "muted"));
         if (finding.explanation) {
           article.append(textElement("h3", "In plain English"));
-          article.append(textElement("p", finding.explanation));
+          article.append(explanationElement(finding.explanation));
         }
         if (finding.recommendation) {
           article.append(textElement("h3", "Suggested fix"));
@@ -275,7 +295,7 @@ export class ResultsPanel {
       const title = textElement("h3", finding.title);
       const rule = textElement("p", "Rule: " + finding.code, "muted");
       const explanationHeading = textElement("h3", "In plain English");
-      const explanationText = textElement("p", explanation.explanation);
+      const explanationText = explanationElement(explanation.explanation);
       const recommendationHeading = textElement("h3", "Suggested fix");
       const recommendationText = textElement("p", explanation.recommendation);
       const locationsHeading = textElement("h3", "Locations");
