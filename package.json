@@ -78,7 +78,9 @@
     "package": "vsce package"
   },
   "dependencies": {
-    "pa11y-ci": "4.1.1"
+    "@puppeteer/browsers": "2.13.2",
+    "pa11y-ci": "4.1.1",
+    "puppeteer": "24.43.1"
   },
   "devDependencies": {
     "@vscode/vsce": "^3.6.2",
