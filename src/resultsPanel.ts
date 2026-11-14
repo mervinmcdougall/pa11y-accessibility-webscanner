@@ -101,6 +101,15 @@ export class ResultsPanel {
   /** Builds the self-contained, nonce-protected webview and its initial report data. */
   private createHtml(): string {
     const nonce = randomBytes(16).toString("base64");
+    const severityCounts = summarizeSeverities(this.report.findings);
+    const maximumCount = Math.max(0, ...severityCounts.map((entry) => entry.count));
+    const scaleMaximum = Math.max(maximumCount, 1);
+    const severityChartStyles = severityCounts.map((entry, index) => {
+      const width = entry.count / scaleMaximum * 100;
+      const intensity = maximumCount ? entry.count / maximumCount : 0;
+      const lightness = 92 - intensity * 50;
+      return `#severity-chart-bar-${index} { width: ${width}%; background-color: hsl(210, 90%, ${lightness}%); }`;
+    }).join("\n");
     // Escape '<' before embedding scan/model content in the inline JSON script element.
     const initialData = JSON.stringify({
       summary: {
@@ -108,7 +117,7 @@ export class ResultsPanel {
         issueCount: this.report.findings.reduce((count, finding) => count + finding.count, 0),
         failures: this.report.results.failures
       },
-      severityCounts: summarizeSeverities(this.report.findings),
+      severityCounts,
       findings: this.report.findings
     }).replace(/</g, "\\u003c");
     return `<!DOCTYPE html>
@@ -122,14 +131,20 @@ export class ResultsPanel {
     body { color: var(--vscode-foreground); font-family: var(--vscode-font-family); padding: 0 1.5rem 2rem; }
     h1 { font-size: 1.5rem; }
     .summary, .finding { border: 1px solid var(--vscode-panel-border); border-radius: 6px; margin: 1rem 0; padding: 1rem; }
-    .severity-table { border-collapse: collapse; width: auto; }
-    .severity-table th, .severity-table td { border-bottom: 1px solid var(--vscode-panel-border); padding: .5rem .75rem; text-align: left; }
-    .severity-table td:last-child, .severity-table th:last-child { text-align: right; }
     .severity-tag { border-radius: 999px; display: inline-block; font-size: .75rem; font-weight: 700; padding: .15rem .55rem; }
     .severity-critical { background: #fde8e7; color: #a4262c; }
     .severity-serious { background: #fce8d5; color: #8a3b00; }
     .severity-moderate { background: #fff4ce; color: #7a4f01; }
     .severity-minor { background: #e8f2ff; color: #174ea6; }
+    .severity-chart { margin: 0; max-width: 48rem; }
+    .severity-chart-row { align-items: center; display: grid; gap: .75rem; grid-template-columns: 6rem minmax(0, 1fr) 2rem; margin: .5rem 0; }
+    .severity-chart-track { background: var(--vscode-editorWidget-background); height: 2rem; }
+    .severity-chart-bar { height: 100%; }
+    .severity-chart-axis { display: grid; gap: .75rem; grid-template-columns: 6rem minmax(0, 1fr) 2rem; }
+    .severity-chart-axis span:first-child { grid-column: 2; justify-self: start; }
+    .severity-chart-x-label { margin: .25rem 0 0; text-align: center; }
+    .severity-legend { display: flex; flex-wrap: nowrap; gap: .5rem; margin-top: 1rem; max-width: 100%; overflow-x: auto; }
+    .severity-legend .severity-tag { flex: 0 0 auto; }
     .actions { display: flex; flex-wrap: wrap; gap: .5rem; margin: 1rem 0; }
     button { background: var(--vscode-button-background); border: 0; border-radius: 2px; color: var(--vscode-button-foreground); cursor: pointer; padding: .5rem .8rem; }
     button:hover { background: var(--vscode-button-hoverBackground); }
@@ -142,6 +157,7 @@ export class ResultsPanel {
     dialog { background: var(--vscode-editor-background); border: 1px solid var(--vscode-panel-border); border-radius: 6px; color: var(--vscode-foreground); max-width: min(42rem, 85vw); }
     dialog::backdrop { background: rgb(0 0 0 / 45%); }
     dialog menu { display: flex; justify-content: flex-end; margin-bottom: 0; padding: 0; }
+    ${severityChartStyles}
   </style>
 </head>
 <body>
@@ -208,28 +224,45 @@ export class ResultsPanel {
         textElement("p", initial.summary.total + " pages scanned"),
         textElement("p", initial.summary.issueCount + " issues found across " + findings.length + " deduplicated findings")
       );
-      const severityHeading = textElement("h2", "Findings by severity");
-      const severityTable = document.createElement("table");
-      severityTable.className = "severity-table";
-      severityTable.setAttribute("aria-label", "Findings by severity");
-      const tableHead = document.createElement("thead");
-      const headerRow = document.createElement("tr");
-      headerRow.append(textElement("th", "Severity"));
-      headerRow.append(textElement("th", "Number found"));
-      tableHead.append(headerRow);
-      severityTable.append(tableHead);
-      const tableBody = document.createElement("tbody");
-      for (const entry of initial.severityCounts) {
-        const row = document.createElement("tr");
-        const severityCell = document.createElement("td");
-        const severityTag = textElement("span", entry.severity, "severity-tag severity-" + entry.severity.toLowerCase());
-        severityCell.append(severityTag);
-        row.append(severityCell);
-        row.append(textElement("td", String(entry.count)));
-        tableBody.append(row);
+      const chartHeading = textElement("h2", "Distribution of Severity");
+      const chart = document.createElement("figure");
+      chart.className = "severity-chart";
+      chart.setAttribute("role", "img");
+      chart.setAttribute(
+        "aria-label",
+        "Distribution of Severity: " + initial.severityCounts
+          .map((entry) => entry.severity + " " + entry.count)
+          .join(", ") + " findings."
+      );
+      for (const [index, entry] of initial.severityCounts.entries()) {
+        const row = document.createElement("div");
+        row.className = "severity-chart-row";
+        const label = textElement("span", entry.severity);
+        const track = document.createElement("div");
+        track.className = "severity-chart-track";
+        const bar = document.createElement("div");
+        bar.className = "severity-chart-bar";
+        bar.id = "severity-chart-bar-" + index;
+        track.append(bar);
+        row.append(label, track, textElement("span", String(entry.count)));
+        chart.append(row);
       }
-      severityTable.append(tableBody);
-      summary.append(severityHeading, severityTable);
+      const axis = document.createElement("div");
+      axis.className = "severity-chart-axis";
+      axis.append(textElement("span", "0"));
+      chart.append(axis, textElement("p", "Number of findings", "severity-chart-x-label"));
+      const legend = document.createElement("div");
+      legend.className = "severity-legend";
+      legend.setAttribute("role", "group");
+      legend.setAttribute("aria-label", "Severity legend");
+      for (const severity of ["Critical", "Serious", "Moderate", "Minor"]) {
+        legend.append(textElement(
+          "span",
+          severity,
+          "severity-tag severity-" + severity.toLowerCase()
+        ));
+      }
+      summary.append(chartHeading, chart, textElement("h3", "Severity Legend"), legend);
       if (initial.summary.failures.length) {
         summary.append(textElement("h2", "Pages that could not be scanned"));
         const failures = document.createElement("ul");
